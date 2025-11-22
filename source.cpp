@@ -51,22 +51,22 @@ public:
     }
 };
 
-int main() {
-    Graph g(5);
-    g.addEdge(0, 1, 4, 90);
-    g.addEdge(0, 2, 6, 80);
-    g.addEdge(1, 2, 2, 70);
-    g.addEdge(1, 3, 5, 95);
-    g.addEdge(2, 3, 3, 85);
-    g.addEdge(3, 4, 4, 90);
-
-    cout << "Graph structure:\n";
-    g.printGraph();
-
-    cout << "\nDeleting edge (1,2)...\n";
-    g.deleteEdge(1, 2);
-
-    g.printGraph();
-
-    return 0;
-}
+//int main() {
+//    Graph g(5);
+//    g.addEdge(0, 1, 4, 90);
+//    g.addEdge(0, 2, 6, 80);
+//    g.addEdge(1, 2, 2, 70);
+//    g.addEdge(1, 3, 5, 95);
+//    g.addEdge(2, 3, 3, 85);
+//    g.addEdge(3, 4, 4, 90);
+//
+//    cout << "Graph structure:\n";
+//    g.printGraph();
+//
+//    cout << "\nDeleting edge (1,2)...\n";
+//    g.deleteEdge(1, 2);
+//
+//    g.printGraph();
+//
+//    return 0;
+//}
