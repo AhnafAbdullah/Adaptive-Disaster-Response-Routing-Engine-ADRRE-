@@ -1,3 +1,12 @@
+// routing.cpp
+// Hybrid routing demo (hardcoded instance from user).
+// - Dijkstra for shortest paths (returns both distance and path).
+// - Greedy assignment by priority respecting vehicle capacities.
+// - Route construction by chaining shortest paths between waypoints.
+// - Computes delivered demand, total timeCost, per-route reliability (product of edge reliabilities).
+// - Prints routes and global metrics.
+//
+
 #include <iostream>
 #include <vector>
 #include <queue>
@@ -5,369 +14,273 @@
 #include <limits>
 #include <cmath>
 #include <map>
+#include <unordered_map>
 #include <string>
+#include <functional>
+#include <tuple>
+#include <fstream>
+#include "json.hpp"
 
 using namespace std;
 
-const double INF = numeric_limits<double>::max();
-
-// Structure to represent a graph edge
 struct Edge {
-    int u, v;
-    double cost;
-    double reliability;
-
-    Edge(int u, int v, double cost, double reliability)
-        : u(u), v(v), cost(cost), reliability(reliability) {
-    }
+    int to;
+    double timeCost;
+    double rel;
 };
 
-// Structure to represent a node (location)
-struct Node {
+struct Nodeinfo {
     int id;
-    double demand;
+    int demand;
     int priority;
-    double service_time;
-
-    Node(int id, double demand, int priority, double service_time = 0)
-        : id(id), demand(demand), priority(priority), service_time(service_time) {
-    }
+    double x, y;
 };
 
-// Structure to represent a vehicle
 struct Vehicle {
     int id;
-    double capacity;
-    double max_travel_time;
-    vector<int> route;
-    double current_load;
-    double total_cost;
-
-    Vehicle(int id, double capacity, double max_travel_time = INF)
-        : id(id), capacity(capacity), max_travel_time(max_travel_time),
-        current_load(0), total_cost(0) {
-    }
+    int capacity;
+    int remaining;
 };
 
-// Graph class to represent the disaster region
-class DisasterGraph {
-private:
-    int V;
-    vector<vector<pair<int, double>>> adj; // (neighbor, cost) / u->{v, weight}
-    vector<vector<double>> reliability_matrix;
-    vector<Node> nodes;
+const int N = 5; // nodes 0..4
 
-public:
-    DisasterGraph(int vertices) : V(vertices) {
-        adj.resize(V);
-        reliability_matrix.resize(V, vector<double>(V, 0.0));
-    }
+// Graph adjacency (undirected)
+vector<Edge> graph_adj[N];
 
-    void addEdge(int u, int v, double cost, double reliability) {
-        adj[u].push_back({ v, cost });
-        adj[v].push_back({ u, cost });
-        reliability_matrix[u][v] = reliability;
-        reliability_matrix[v][u] = reliability;
-    }
+// Add undirected edge
+void add_edge(int u, int v, double timeCost, double rel) {
+    graph_adj[u].push_back({ v, timeCost, rel });
+    graph_adj[v].push_back({ u, timeCost, rel });
+}
 
-    void addNode(const Node& node) {
-        nodes.push_back(node);
-    }
-
-    // Dijkstra's algorithm to find shortest paths from source
-    vector<double> dijkstra(int source) {
-        vector<double> dist(V, INF);
-        priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> pq;
-
-        dist[source] = 0;
-        pq.push({ 0, source });
-
-        while (!pq.empty()) {
-            double current_dist = pq.top().first;
-            int u = pq.top().second;
-            pq.pop();
-
-            if (current_dist > dist[u]) continue;
-
-            for (auto& edge : adj[u]) {
-                int v = edge.first;
-                double weight = edge.second;
-
-                if (dist[u] + weight < dist[v]) {
-                    dist[v] = dist[u] + weight;
-                    pq.push({ dist[v], v });
-                }
-            }
-        }
-        return dist;
-    }
-
-    // Get reliability between two nodes
-    double getReliability(int u, int v) {
-        return reliability_matrix[u][v];
-    }
-
-    // Get all nodes
-    vector<Node>& getNodes() {
-        return nodes;
-    }
-
-    int getVertexCount() const {
-        return V;
-    }
-};
-
-// Disaster Response System class
-class DisasterResponseSystem {
-private:
-    DisasterGraph graph;
-    vector<Vehicle> vehicles;
-    double alpha, beta, gamma; // weights for objective function
-
-public:
-    DisasterResponseSystem(const DisasterGraph& g, double alpha = 1.0, double beta = 0.5, double gamma = 0.3)
-        : graph(g), alpha(alpha), beta(beta), gamma(gamma) {
-    }
-
-    void addVehicle(const Vehicle& vehicle) {
-        vehicles.push_back(vehicle);
-    }
-
-    // Greedy vehicle assignment with priority-based node selection
-    void assignRoutes() {
-        // Reset vehicles
-        for (auto& vehicle : vehicles) {
-            vehicle.route.clear();
-            vehicle.current_load = 0;
-            vehicle.total_cost = 0;
-        }
-
-        // Get all nodes except depot (node 0)
-        vector<Node> nodes = graph.getNodes();
-        vector<Node> deliveryNodes;
-        for (const auto& node : nodes) {
-            if (node.id != 0 && node.demand > 0) {
-                deliveryNodes.push_back(node);
-            }
-        }
-
-        // Sort nodes by priority (descending)
-        sort(deliveryNodes.begin(), deliveryNodes.end(),
-            [](const Node& a, const Node& b) {
-                return a.priority > b.priority;
-            });
-
-        // Precompute distances from depot
-        vector<double> depotDistances = graph.dijkstra(0);
-
-        // Assign nodes to vehicles using greedy approach
-        for (const auto& node : deliveryNodes) {
-            double minAdditionalCost = INF;
-            int bestVehicle = -1;
-            int bestInsertPosition = -1;
-
-            for (int i = 0; i < vehicles.size(); i++) {
-                if (vehicles[i].current_load + node.demand <= vehicles[i].capacity) {
-                    // Try to insert this node into the vehicle's route
-                    double additionalCost = calculateInsertionCost(vehicles[i], node.id, depotDistances);
-
-                    if (additionalCost < minAdditionalCost) {
-                        minAdditionalCost = additionalCost;
-                        bestVehicle = i;
-                    }
-                }
-            }
-
-            if (bestVehicle != -1) {
-                // Insert node into the best vehicle's route
-                insertNodeInRoute(vehicles[bestVehicle], node.id, depotDistances);
-                vehicles[bestVehicle].current_load += node.demand;
-            }
-        }
-
-        // Complete routes by returning to depot
-        for (auto& vehicle : vehicles) {
-            if (!vehicle.route.empty() && vehicle.route.back() != 0) {
-                vehicle.route.push_back(0);
+// Dijkstra returning pair<distance, path vector<int>>
+pair<double, vector<int>> dijkstra_path(int src, int dest) {
+    const double DOUBLE_MAX = 1e18;
+    vector<double> dist(N, DOUBLE_MAX);
+    vector<int> parent(N, -1);
+    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> pq;
+    dist[src] = 0;
+    pq.push({ 0, src });
+    while (!pq.empty()) {
+        auto thisEdge = pq.top(); pq.pop();
+        int d = thisEdge.first;
+        int u = thisEdge.second;
+        if (d > dist[u]) continue;
+        if (u == dest) break;
+        for (auto& e : graph_adj[u]) {
+            int v = e.to;
+            double w = e.timeCost;
+            if (dist[v] > dist[u] + w) {
+                dist[v] = dist[u] + w;
+                parent[v] = u;
+                pq.push({ dist[v], v });
             }
         }
     }
-
-private:
-    double calculateInsertionCost(const Vehicle& vehicle, int nodeId, const vector<double>& depotDistances) {
-        if (vehicle.route.empty()) {
-            // Vehicle at depot, cost is round trip to node
-            return 2 * depotDistances[nodeId];
-        }
-
-        // For simplicity, calculate cost of inserting at end of route
-        int lastNode = vehicle.route.back();
-        vector<double> lastNodeDistances = graph.dijkstra(lastNode);
-
-        return lastNodeDistances[nodeId] + depotDistances[nodeId] - depotDistances[lastNode];
+    vector<int> path;
+    if (dist[dest] >= INT_MAX) return { INT_MAX, path };
+    int cur = dest;
+    while (cur != -1) {
+        path.push_back(cur);
+        cur = parent[cur];
     }
+    reverse(path.begin(), path.end());
+    return { dist[dest], path };
+}
 
-    void insertNodeInRoute(Vehicle& vehicle, int nodeId, const vector<double>& depotDistances) {
-        if (vehicle.route.empty()) {
-            vehicle.route.push_back(0); // Start from depot
+// Compute timeCost and reliability product for a full route (sequence of nodes visited in order).
+// The route is a list of nodes visited sequentially; edges between consecutive nodes must exist (we assume they do
+// because they are built using shortest paths).
+pair<double, double> calculateRouteTimetimeCostReliability(vector<int>& route) {
+    double total_timeCost = 0.0;
+    double reliability_product = 1.0;
+    for (int i = 1; i < route.size(); ++i) {
+        int u = route[i - 1], v = route[i];
+        // find edge u->v
+        bool found = false;
+        for (auto& e : graph_adj[u]) {
+            if (e.to == v) {
+                total_timeCost += e.timeCost;
+                reliability_product *= e.rel;
+                found = true;
+                break;
+            }
         }
-
-        // For simplicity, always insert at the end (before returning to depot)
-        vehicle.route.push_back(nodeId);
+        if (!found) {
+            // This shouldn't happen if we build the route by shortest-path chaining.
+            cerr << "Warning: edge missing between " << u << " and " << v << "\n";
+        }
     }
-
-public:
-    // Calculate objective function value
-    double calculateObjectiveFunction() {
-        double totalCost = 0.0;
-        double totalReliabilityPenalty = 0.0;
-        double totalIdleCost = 0.0;
-
-        // Calculate total travel cost and reliability penalty
-        for (const auto& vehicle : vehicles) {
-            if (vehicle.route.size() < 2) continue;
-
-            for (int i = 0; i < vehicle.route.size() - 1; i++) {
-                int u = vehicle.route[i];
-                int v = vehicle.route[i + 1];
-
-                // Find the edge cost (simplified - would need edge lookup)
-                vector<double> dist = graph.dijkstra(u);
-                double cost = dist[v];
-                totalCost += cost;
-
-                // Reliability penalty (simplified)
-                double reliability = graph.getReliability(u, v);
-                totalReliabilityPenalty += (1 - reliability);
-            }
-        }
-
-        // Calculate idle cost (simplified - vehicles with no routes are idle)
-        for (const auto& vehicle : vehicles) {
-            if (vehicle.route.size() <= 2) { // Only depot or depot->one node->depot
-                totalIdleCost += 1.0;
-            }
-        }
-
-        return alpha * totalCost + beta * totalReliabilityPenalty + gamma * totalIdleCost;
-    }
-
-    // Print results
-    void printResults() {
-        cout << "=== DISASTER RESPONSE ROUTING RESULTS ===" << endl;
-        cout << endl;
-
-        double totalCombinedCost = 0.0;
-        double totalDeliveredDemand = 0.0;
-        double totalReliability = 0.0;
-        int edgeCount = 0;
-
-        for (const auto& vehicle : vehicles) {
-            cout << "Vehicle " << vehicle.id << " Route: ";
-            for (int i = 0; i < vehicle.route.size(); i++) {
-                cout << vehicle.route[i];
-                if (i < vehicle.route.size() - 1) cout << "->";
-            }
-            cout << endl;
-
-            cout << "Delivered Demand: " << vehicle.current_load << endl;
-
-            // Calculate vehicle cost
-            double vehicleCost = 0.0;
-            double vehicleReliability = 0.0;
-            int vehicleEdgeCount = 0;
-
-            if (vehicle.route.size() >= 2) {
-                for (int i = 0; i < vehicle.route.size() - 1; i++) {
-                    int u = vehicle.route[i];
-                    int v = vehicle.route[i + 1];
-
-                    vector<double> dist = graph.dijkstra(u);
-                    vehicleCost += dist[v];
-
-                    double rel = graph.getReliability(u, v);
-                    vehicleReliability += rel;
-                    vehicleEdgeCount++;
-                }
-            }
-
-            cout << "Total Cost: " << vehicleCost << endl;
-            if (vehicleEdgeCount > 0) {
-                cout << "Average Reliability: " << (vehicleReliability / vehicleEdgeCount) << endl;
-            }
-            cout << endl;
-
-            totalCombinedCost += vehicleCost;
-            totalDeliveredDemand += vehicle.current_load;
-            totalReliability += vehicleReliability;
-            edgeCount += vehicleEdgeCount;
-        }
-
-        cout << "SUMMARY:" << endl;
-        cout << "Total Combined Cost: " << totalCombinedCost << endl;
-        cout << "Total Delivered Demand: " << totalDeliveredDemand << endl;
-        if (edgeCount > 0) {
-            cout << "Overall Average Reliability: " << (totalReliability / edgeCount) << endl;
-        }
-        cout << "Objective Function Value: " << calculateObjectiveFunction() << endl;
-    }
-};
-
-// Create sample disaster scenario for testing
-DisasterGraph createSampleScenario() {
-    // Create graph with 5 nodes (0 is depot)
-    DisasterGraph graph(5);
-
-    // Add nodes (id, demand, priority)
-    graph.addNode(Node(0, 0, 0));  // Depot
-    graph.addNode(Node(1, 3, 5));  // High priority
-    graph.addNode(Node(2, 2, 3));  // Medium priority
-    graph.addNode(Node(3, 4, 4));  // High priority
-    graph.addNode(Node(4, 1, 2));  // Low priority
-
-    // Add edges (u, v, cost, reliability)
-    graph.addEdge(0, 1, 4, 0.9);
-    graph.addEdge(0, 2, 6, 0.8);
-    graph.addEdge(1, 2, 2, 0.7);
-    graph.addEdge(1, 3, 5, 0.95);
-    graph.addEdge(2, 3, 3, 0.85);
-    graph.addEdge(3, 4, 4, 0.9);
-
-    return graph;
+    return { total_timeCost, reliability_product };
 }
 
 int main() {
-    cout << "Disaster Response Routing Algorithm Implementation" << endl;
-    cout << "=================================================" << endl;
-    cout << endl;
+    // Edges: (bidirectional)
+    add_edge(0, 1, 4, 0.9);
+    add_edge(0, 2, 6, 0.8);
+    add_edge(1, 2, 2, 0.7);
+    add_edge(1, 3, 5, 0.95);
+    add_edge(2, 3, 3, 0.85);
+    add_edge(3, 4, 4, 0.9);
 
-    // Create sample scenario
-    DisasterGraph graph = createSampleScenario();
+    // Node details: id, demand, priority
+    vector<Nodeinfo> nodes(N);
+    nodes[0] = { 0, 0, 0, 0.0, 0.0 }; // depot
+    nodes[1] = { 1, 3, 5, 0.0, 0.0 };
+    nodes[2] = { 2, 2, 3, 0.0, 0.0 };
+    nodes[3] = { 3, 4, 4, 0.0, 0.0 };
+    nodes[4] = { 4, 1, 2, 0.0, 0.0 };
 
-    // Create response system
-    DisasterResponseSystem system(graph);
+    // Vehicles: id, capacity
+    vector<Vehicle> vehicles;
+    vehicles.push_back({ 1, 5, 5 });
+    vehicles.push_back({ 2, 6, 6 });
 
-    // Add vehicles
-    system.addVehicle(Vehicle(1, 5));  // Vehicle 1 with capacity 5
-    system.addVehicle(Vehicle(2, 6));  // Vehicle 2 with capacity 6
+    int depot = 0;
 
-    // Assign routes using greedy algorithm
-    system.assignRoutes();
+    // --- Greedy assignment by priority (highest first), respecting vehicle capacity ---
+    // Build list of demand nodes (exclude depot)
+    vector<int> demand_nodes;
+    for (int i = 1; i < N; ++i) demand_nodes.push_back(i);
+    // sort nodes by priority desc, tie-break by demand desc then id
+    sort(demand_nodes.begin(), demand_nodes.end(), [&](int a, int b) {
+        if (nodes[a].priority != nodes[b].priority) return nodes[a].priority > nodes[b].priority;
+        if (nodes[a].demand != nodes[b].demand) return nodes[a].demand > nodes[b].demand;
+        return a < b;
+        });
 
-    // Print results
-    system.printResults();
+    // Assignment: vector of assigned node lists per vehicle
+    vector<vector<int>> assigned(vehicles.size());
+    vector<bool> served(N, false);
 
-    // Test with different parameters
-    cout << endl;
-    cout << "=== TESTING WITH DIFFERENT PARAMETERS ===" << endl;
-    cout << endl;
+    for (int nd : demand_nodes) {
+        int demand = nodes[nd].demand;
+        // Try to assign to first vehicle that fits (greedy). This will replicate the user's expected assignment:
+        // vehicle 1 gets node1 (3) then node2 (2). vehicle2 gets remaining nodes.
+        bool placed = false;
+        for (int vi = 0; vi < vehicles.size(); ++vi) {
+            if (vehicles[vi].remaining >= demand) {
+                assigned[vi].push_back(nd);
+                vehicles[vi].remaining -= demand;
+                served[nd] = true;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            cerr << "Node " << nd << " (demand " << demand << ") could not be assigned to any vehicle.\n";
+        }
+    }
 
-    // Test with higher priority weight
-    DisasterResponseSystem system2(graph, 2.0, 0.5, 0.3); // Higher time weight
-    system2.addVehicle(Vehicle(1, 5));
-    system2.addVehicle(Vehicle(2, 6));
-    system2.assignRoutes();
-    system2.printResults();
+    // --- Route construction: For each vehicle, order assigned nodes using nearest-next by shortest-path distance,
+    // chaining shortest paths between points to build the full visited-node sequence (including intermediate nodes).
+    vector<vector<int>> full_routes(vehicles.size());
+    vector<double> route_timeCosts(vehicles.size(), 0.0);
+    vector<double> route_reliability(vehicles.size(), 1.0);
+    vector<int> delivered_demand(vehicles.size(), 0);
+
+    for (int vi = 0; vi < vehicles.size(); ++vi) {
+        vector<int> waypoints = assigned[vi]; // nodes to serve (by id)
+        vector<int> visit_order;
+        int current = depot;
+        // select next as the waypoint with minimum shortest-path distance from current
+        vector<bool> used_waypoint(waypoints.size(), false);
+        while (true) {
+            int chosen_idx = -1;
+            double best_dist = 1e18;
+            pair<double, vector<int>> best_path;
+            for (int k = 0; k < waypoints.size(); ++k) {
+                if (used_waypoint[k]) continue;
+                int candidate = waypoints[k];
+                auto res = dijkstra_path(current, candidate);
+                double d = res.first;
+                if (d < best_dist) {
+                    best_dist = d;
+                    chosen_idx = (int)k;
+                    best_path = res;
+                }
+            }
+            if (chosen_idx == -1) break;
+            // append path from current -> chosen (but avoid duplicating current)
+            vector<int> path = best_path.second;
+            if (full_routes[vi].empty()) {
+                // start from depot
+                for (int node : path) full_routes[vi].push_back(node);
+            }
+            else {
+                // avoid duplicating the joining node
+                for (int p = 1; p < path.size(); ++p) full_routes[vi].push_back(path[p]);
+            }
+            // mark waypoint used
+            used_waypoint[chosen_idx] = true;
+            // update current
+            current = waypoints[chosen_idx];
+            // accumulate delivered demand
+            delivered_demand[vi] += nodes[current].demand;
+        }
+        // return to depot: shortest path from current to depot
+        if (full_routes[vi].empty()) {
+            // vehicle didn't have any assigned nodes; route is depot->depot
+            full_routes[vi].push_back(depot);
+            full_routes[vi].push_back(depot);
+        }
+        else {
+            auto resret = dijkstra_path(current, depot);
+            vector<int> pathret = resret.second;
+            // avoid duplicating the connecting node
+            for (int p = 1; p < pathret.size(); ++p) full_routes[vi].push_back(pathret[p]);
+        }
+        // Ensure route starts at depot; if not, prepend depot
+        if (full_routes[vi].empty() || full_routes[vi].front() != depot) {
+            full_routes[vi].insert(full_routes[vi].begin(), depot);
+        }
+
+        // Evaluate route timeCost & reliability
+		pair<double, double> res = calculateRouteTimetimeCostReliability(full_routes[vi]);
+        double timeCost = res.first;
+        double relprod = res.second;
+        route_timeCosts[vi] = timeCost;
+        route_reliability[vi] = relprod;
+    }
+
+    // --- Output formatting ---
+    double total_combined_timeCost = 0.0;
+    double sum_route_reliability = 0.0;
+    int total_delivered_demand = 0;
+    int total_possible_priority = 0;
+    int total_delivered_priority = 0;
+    for (int i = 1; i < N; ++i) total_possible_priority += nodes[i].priority;
+
+
+    for (int vi = 0; vi < vehicles.size(); ++vi) {
+        cout << "Vehicle " << vehicles[vi].id << " Route : ";
+        // print route as "0 -> 1 -> 2 -> 0"
+        for (int i = 0; i < full_routes[vi].size(); ++i) {
+            cout << full_routes[vi][i];
+            if (i + 1 < full_routes[vi].size()) cout << " -> ";
+        }
+        cout << "\n";
+        cout << "Delivered Demand : " << delivered_demand[vi] << " \n";
+        cout << "Total timeCost : " << (long long)llround(route_timeCosts[vi]) << "  \n";
+        cout << "\n";
+        total_combined_timeCost += route_timeCosts[vi];
+        sum_route_reliability += route_reliability[vi];
+        total_delivered_demand += delivered_demand[vi];
+        // delivered priorities: sum priorities of nodes actually assigned to this vehicle
+        int sumpri = 0;
+        for (int nid : assigned[vi]) sumpri += nodes[nid].priority;
+        total_delivered_priority += sumpri;
+    }
+
+    double avg_reliability = sum_route_reliability / vehicles.size();
+
+    cout << "Total Combined timeCost : " << (long long)llround(total_combined_timeCost) << "\n";
+    cout << "Average Reliability (route product average) : " << avg_reliability << "\n";
+
+    cout << "Priority Satisfaction Score (sum of delivered priorities): " << total_delivered_priority << "\n";
+    double pri_percent = 0.0;
+    if (total_possible_priority > 0) pri_percent = 100.0 * (double)total_delivered_priority / (double)total_possible_priority;
+    cout << "Priority Satisfaction (%) : " << pri_percent << "%\n";
 
     return 0;
 }
