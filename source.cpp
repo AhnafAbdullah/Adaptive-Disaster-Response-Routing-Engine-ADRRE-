@@ -25,7 +25,6 @@ struct Nodeinfo {
     int id;
     int demand;
     int priority;
-    //double x, y;
 };
 
 struct Vehicle {
@@ -87,10 +86,10 @@ bool loadFromJSON(const string& filename,
     return true;
 }
 
-const int N = 10; // nodes 0..4
+int N = 200; // nodes
 
 // Graph adjacency (undirected)
-vector<vector<Edge>> graph_adj(N);
+vector<vector<Edge>> graph_adj;
 
 // Add undirected edge
 void add_edge(int u, int v, double timeCost, double rel) {
@@ -214,15 +213,8 @@ vector<vector<int>> assign_nodes_knapsack(vector<Nodeinfo>& nodes, vector<Vehicl
 }
 
 double computeObjective(
-    const vector<vector<int>>& full_routes,
-    const vector<double>& route_timeCosts,
-    const vector<double>& route_reliability,
-    const vector<int>& delivered_demand,
-    const vector<Nodeinfo>& nodes,
-    const vector<Vehicle>& vehicles,
-    double alpha = 1.0,
-    double beta = 1.0,
-    double gamma = 1.0)
+    const vector<vector<int>>& full_routes, const vector<double>& route_timeCosts, const vector<double>& route_reliability, const vector<int>& delivered_demand,
+    const vector<Nodeinfo>& nodes, const vector<Vehicle>& vehicles, double alpha = 1.0, double beta = 1.0, double gamma = 1.0)
 {
     double obj = 0.0;
 
@@ -419,14 +411,17 @@ double computeObjective(
 //}
 
 int main() {
-    string filename = "input.json";
+    string filename = "input_3.json";
 
     // Get number of nodes from JSON
     int num_nodes = getNumberOfNodesFromJSON(filename);
     if (num_nodes == -1) return 1; // fail if JSON cannot be read
 
+    cout << num_nodes << endl;
+
     // Resize graph adjacency list
     graph_adj.resize(num_nodes);
+    N = num_nodes;
 
     // Now call the existing function to populate nodes, edges, and vehicles
     vector<Nodeinfo> nodes;

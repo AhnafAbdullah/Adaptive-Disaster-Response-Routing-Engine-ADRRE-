@@ -1,0 +1,569 @@
+{
+  "nodes": [
+    {
+      "id": 0,
+      "demand": 0,
+      "priority": 0
+    },
+    {
+      "id": 1,
+      "demand": 2,
+      "priority": 4
+    },
+    {
+      "id": 2,
+      "demand": 3,
+      "priority": 5
+    },
+    {
+      "id": 3,
+      "demand": 1,
+      "priority": 2
+    },
+    {
+      "id": 4,
+      "demand": 4,
+      "priority": 3
+    },
+    {
+      "id": 5,
+      "demand": 2,
+      "priority": 1
+    },
+    {
+      "id": 6,
+      "demand": 5,
+      "priority": 5
+    },
+    {
+      "id": 7,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 8,
+      "demand": 2,
+      "priority": 2
+    },
+    {
+      "id": 9,
+      "demand": 4,
+      "priority": 3
+    },
+    {
+      "id": 10,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 11,
+      "demand": 2,
+      "priority": 5
+    },
+    {
+      "id": 12,
+      "demand": 1,
+      "priority": 1
+    },
+    {
+      "id": 13,
+      "demand": 4,
+      "priority": 3
+    },
+    {
+      "id": 14,
+      "demand": 2,
+      "priority": 2
+    },
+    {
+      "id": 15,
+      "demand": 5,
+      "priority": 5
+    },
+    {
+      "id": 16,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 17,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 18,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 19,
+      "demand": 1,
+      "priority": 1
+    },
+    {
+      "id": 20,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 21,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 22,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 23,
+      "demand": 1,
+      "priority": 2
+    },
+    {
+      "id": 24,
+      "demand": 2,
+      "priority": 4
+    },
+    {
+      "id": 25,
+      "demand": 3,
+      "priority": 3
+    },
+    {
+      "id": 26,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 27,
+      "demand": 2,
+      "priority": 1
+    },
+    {
+      "id": 28,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 29,
+      "demand": 5,
+      "priority": 5
+    },
+    {
+      "id": 30,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 31,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 32,
+      "demand": 1,
+      "priority": 2
+    },
+    {
+      "id": 33,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 34,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 35,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 36,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 37,
+      "demand": 1,
+      "priority": 1
+    },
+    {
+      "id": 38,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 39,
+      "demand": 2,
+      "priority": 2
+    },
+    {
+      "id": 40,
+      "demand": 4,
+      "priority": 3
+    },
+    {
+      "id": 41,
+      "demand": 1,
+      "priority": 1
+    },
+    {
+      "id": 42,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 43,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 44,
+      "demand": 5,
+      "priority": 5
+    },
+    {
+      "id": 45,
+      "demand": 3,
+      "priority": 4
+    },
+    {
+      "id": 46,
+      "demand": 2,
+      "priority": 2
+    },
+    {
+      "id": 47,
+      "demand": 4,
+      "priority": 5
+    },
+    {
+      "id": 48,
+      "demand": 2,
+      "priority": 3
+    },
+    {
+      "id": 49,
+      "demand": 3,
+      "priority": 4
+    }
+  ],
+
+  "edges": [
+    {
+      "u": 0,
+      "v": 1,
+      "cost": 4,
+      "reliability": 0.95
+    },
+    {
+      "u": 0,
+      "v": 2,
+      "cost": 3,
+      "reliability": 0.80
+    },
+    {
+      "u": 1,
+      "v": 3,
+      "cost": 5,
+      "reliability": 0.90
+    },
+    {
+      "u": 2,
+      "v": 4,
+      "cost": 6,
+      "reliability": 0.92
+    },
+    {
+      "u": 3,
+      "v": 5,
+      "cost": 4,
+      "reliability": 0.85
+    },
+    {
+      "u": 4,
+      "v": 6,
+      "cost": 7,
+      "reliability": 0.75
+    },
+    {
+      "u": 5,
+      "v": 7,
+      "cost": 3,
+      "reliability": 0.88
+    },
+    {
+      "u": 6,
+      "v": 8,
+      "cost": 2,
+      "reliability": 0.70
+    },
+    {
+      "u": 7,
+      "v": 9,
+      "cost": 5,
+      "reliability": 0.95
+    },
+    {
+      "u": 8,
+      "v": 10,
+      "cost": 4,
+      "reliability": 0.82
+    },
+    {
+      "u": 9,
+      "v": 11,
+      "cost": 4,
+      "reliability": 0.90
+    },
+    {
+      "u": 10,
+      "v": 12,
+      "cost": 6,
+      "reliability": 0.85
+    },
+    {
+      "u": 11,
+      "v": 13,
+      "cost": 7,
+      "reliability": 0.88
+    },
+    {
+      "u": 12,
+      "v": 14,
+      "cost": 3,
+      "reliability": 0.80
+    },
+    {
+      "u": 13,
+      "v": 15,
+      "cost": 4,
+      "reliability": 0.92
+    },
+    {
+      "u": 14,
+      "v": 16,
+      "cost": 5,
+      "reliability": 0.93
+    },
+    {
+      "u": 15,
+      "v": 17,
+      "cost": 6,
+      "reliability": 0.85
+    },
+    {
+      "u": 16,
+      "v": 18,
+      "cost": 3,
+      "reliability": 0.90
+    },
+    {
+      "u": 17,
+      "v": 19,
+      "cost": 4,
+      "reliability": 0.75
+    },
+    {
+      "u": 18,
+      "v": 20,
+      "cost": 7,
+      "reliability": 0.88
+    },
+
+    {
+      "u": 20,
+      "v": 21,
+      "cost": 4,
+      "reliability": 0.91
+    },
+    {
+      "u": 21,
+      "v": 22,
+      "cost": 5,
+      "reliability": 0.94
+    },
+    {
+      "u": 22,
+      "v": 23,
+      "cost": 6,
+      "reliability": 0.84
+    },
+    {
+      "u": 23,
+      "v": 24,
+      "cost": 3,
+      "reliability": 0.80
+    },
+    {
+      "u": 24,
+      "v": 25,
+      "cost": 4,
+      "reliability": 0.90
+    },
+    {
+      "u": 25,
+      "v": 26,
+      "cost": 7,
+      "reliability": 0.86
+    },
+    {
+      "u": 26,
+      "v": 27,
+      "cost": 5,
+      "reliability": 0.93
+    },
+    {
+      "u": 27,
+      "v": 28,
+      "cost": 3,
+      "reliability": 0.85
+    },
+    {
+      "u": 28,
+      "v": 29,
+      "cost": 4,
+      "reliability": 0.92
+    },
+    {
+      "u": 29,
+      "v": 30,
+      "cost": 6,
+      "reliability": 0.94
+    },
+
+    {
+      "u": 30,
+      "v": 31,
+      "cost": 4,
+      "reliability": 0.80
+    },
+    {
+      "u": 31,
+      "v": 32,
+      "cost": 3,
+      "reliability": 0.82
+    },
+    {
+      "u": 32,
+      "v": 33,
+      "cost": 5,
+      "reliability": 0.91
+    },
+    {
+      "u": 33,
+      "v": 34,
+      "cost": 4,
+      "reliability": 0.88
+    },
+    {
+      "u": 34,
+      "v": 35,
+      "cost": 6,
+      "reliability": 0.90
+    },
+    {
+      "u": 35,
+      "v": 36,
+      "cost": 3,
+      "reliability": 0.85
+    },
+    {
+      "u": 36,
+      "v": 37,
+      "cost": 4,
+      "reliability": 0.83
+    },
+    {
+      "u": 37,
+      "v": 38,
+      "cost": 6,
+      "reliability": 0.82
+    },
+    {
+      "u": 38,
+      "v": 39,
+      "cost": 5,
+      "reliability": 0.94
+    },
+    {
+      "u": 39,
+      "v": 40,
+      "cost": 3,
+      "reliability": 0.92
+    },
+
+    {
+      "u": 40,
+      "v": 41,
+      "cost": 4,
+      "reliability": 0.90
+    },
+    {
+      "u": 41,
+      "v": 42,
+      "cost": 6,
+      "reliability": 0.82
+    },
+    {
+      "u": 42,
+      "v": 43,
+      "cost": 5,
+      "reliability": 0.95
+    },
+    {
+      "u": 43,
+      "v": 44,
+      "cost": 7,
+      "reliability": 0.88
+    },
+    {
+      "u": 44,
+      "v": 45,
+      "cost": 4,
+      "reliability": 0.91
+    },
+    {
+      "u": 45,
+      "v": 46,
+      "cost": 3,
+      "reliability": 0.84
+    },
+    {
+      "u": 46,
+      "v": 47,
+      "cost": 5,
+      "reliability": 0.92
+    },
+    {
+      "u": 47,
+      "v": 48,
+      "cost": 6,
+      "reliability": 0.90
+    },
+    {
+      "u": 48,
+      "v": 49,
+      "cost": 4,
+      "reliibility": 0.87
+    }
+  ],
+
+  "vehicles": [
+    {
+      "id": 1,
+      "capacity": 20
+    },
+    {
+      "id": 2,
+      "capacity": 20
+    },
+    {
+      "id": 3,
+      "capacity": 15
+    }
+  ]
+}
