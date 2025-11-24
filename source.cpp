@@ -1,12 +1,3 @@
-// routing.cpp
-// Hybrid routing demo (hardcoded instance from user).
-// - Dijkstra for shortest paths (returns both distance and path).
-// - Greedy assignment by priority respecting vehicle capacities.
-// - Route construction by chaining shortest paths between waypoints.
-// - Computes delivered demand, total timeCost, per-route reliability (product of edge reliabilities).
-// - Prints routes and global metrics.
-//
-
 #include <iostream>
 #include <vector>
 #include <queue>
@@ -20,6 +11,7 @@
 #include <tuple>
 #include <fstream>
 #include "json.hpp"
+using json = nlohmann::json;
 
 using namespace std;
 
@@ -33,7 +25,7 @@ struct Nodeinfo {
     int id;
     int demand;
     int priority;
-    double x, y;
+    //double x, y;
 };
 
 struct Vehicle {
@@ -42,10 +34,63 @@ struct Vehicle {
     int remaining;
 };
 
-const int N = 5; // nodes 0..4
+bool loadFromJSON(const string& filename,
+    vector<Nodeinfo>& nodes,
+    vector<vector<Edge>>& graph_adj,
+    vector<Vehicle>& vehicles)
+{
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error: Could not open JSON file.\n";
+        return false;
+    }
+
+    json j;
+    file >> j;
+
+    // --- Load Nodes ---
+    nodes.clear();
+    for (auto& n : j["nodes"]) {
+        Nodeinfo node;
+        node.id = n["id"];
+        node.demand = n["demand"];
+        node.priority = n["priority"];
+        nodes.push_back(node);
+    }
+
+    // Resize graph to match number of nodes
+    int N = nodes.size();
+    graph_adj.clear();
+    graph_adj.resize(N);
+
+    // --- Load Edges (undirected) ---
+    for (auto& e : j["edges"]) {
+        int u = e["u"];
+        int v = e["v"];
+        double cost = e["cost"];
+        double rel = e["reliability"];
+
+        graph_adj[u].push_back({ v, cost, rel });
+        graph_adj[v].push_back({ u, cost, rel }); // undirected
+    }
+
+    // --- Load Vehicles ---
+    vehicles.clear();
+    for (auto& v : j["vehicles"]) {
+        Vehicle veh;
+        veh.id = v["id"];
+        veh.capacity = v["capacity"];
+        veh.remaining = veh.capacity;
+        vehicles.push_back(veh);
+    }
+
+    return true;
+}
+
+const int N = 10; // nodes 0..4
 
 // Graph adjacency (undirected)
-vector<Edge> graph_adj[N];
+vector<vector<Edge>> graph_adj(N);
 
 // Add undirected edge
 void add_edge(int u, int v, double timeCost, double rel) {
@@ -63,7 +108,7 @@ pair<double, vector<int>> dijkstra_path(int src, int dest) {
     pq.push({ 0, src });
     while (!pq.empty()) {
         auto thisEdge = pq.top(); pq.pop();
-        int d = thisEdge.first;
+        double d = thisEdge.first;
         int u = thisEdge.second;
         if (d > dist[u]) continue;
         if (u == dest) break;
@@ -114,49 +159,64 @@ pair<double, double> calculateRouteTimetimeCostReliability(vector<int>& route) {
     return { total_timeCost, reliability_product };
 }
 
+
+int getNumberOfNodesFromJSON(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open JSON file: " << filename << "\n";
+        return -1;
+    }
+
+    json j;
+    file >> j;
+
+    if (!j.contains("nodes") || !j["nodes"].is_array()) {
+        std::cerr << "Error: JSON does not contain a valid 'nodes' array.\n";
+        return -1;
+    }
+
+    return j["nodes"].size();
+}
+
 int main() {
-    // Edges: (bidirectional)
-    add_edge(0, 1, 4, 0.9);
-    add_edge(0, 2, 6, 0.8);
-    add_edge(1, 2, 2, 0.7);
-    add_edge(1, 3, 5, 0.95);
-    add_edge(2, 3, 3, 0.85);
-    add_edge(3, 4, 4, 0.9);
+    string filename = "input.json";
 
-    // Node details: id, demand, priority
-    vector<Nodeinfo> nodes(N);
-    nodes[0] = { 0, 0, 0, 0.0, 0.0 }; // depot
-    nodes[1] = { 1, 3, 5, 0.0, 0.0 };
-    nodes[2] = { 2, 2, 3, 0.0, 0.0 };
-    nodes[3] = { 3, 4, 4, 0.0, 0.0 };
-    nodes[4] = { 4, 1, 2, 0.0, 0.0 };
+    // Get number of nodes from JSON
+    int num_nodes = getNumberOfNodesFromJSON(filename);
+    if (num_nodes == -1) return 1; // fail if JSON cannot be read
 
-    // Vehicles: id, capacity
+    // Resize graph adjacency list
+    graph_adj.resize(num_nodes);
+
+    // Now call the existing function to populate nodes, edges, and vehicles
+    vector<Nodeinfo> nodes;
     vector<Vehicle> vehicles;
-    vehicles.push_back({ 1, 5, 5 });
-    vehicles.push_back({ 2, 6, 6 });
+    if (!loadFromJSON(filename, nodes, graph_adj, vehicles)) {
+        cerr << "Failed to load graph data from JSON.\n";
+        return 1;
+    }
 
-    int depot = 0;
+    int depot = 0; // assuming depot has id = 0
 
     // --- Greedy assignment by priority (highest first), respecting vehicle capacity ---
-    // Build list of demand nodes (exclude depot)
     vector<int> demand_nodes;
-    for (int i = 1; i < N; ++i) demand_nodes.push_back(i);
-    // sort nodes by priority desc, tie-break by demand desc then id
+    for (int i = 0; i < N; ++i) {
+        if (nodes[i].id != depot) demand_nodes.push_back(nodes[i].id);
+    }
+
+    // Sort nodes by priority descending, tie-break by demand desc, then id
     sort(demand_nodes.begin(), demand_nodes.end(), [&](int a, int b) {
         if (nodes[a].priority != nodes[b].priority) return nodes[a].priority > nodes[b].priority;
         if (nodes[a].demand != nodes[b].demand) return nodes[a].demand > nodes[b].demand;
         return a < b;
         });
 
-    // Assignment: vector of assigned node lists per vehicle
+    // Assignment
     vector<vector<int>> assigned(vehicles.size());
     vector<bool> served(N, false);
 
     for (int nd : demand_nodes) {
         int demand = nodes[nd].demand;
-        // Try to assign to first vehicle that fits (greedy). This will replicate the user's expected assignment:
-        // vehicle 1 gets node1 (3) then node2 (2). vehicle2 gets remaining nodes.
         bool placed = false;
         for (int vi = 0; vi < vehicles.size(); ++vi) {
             if (vehicles[vi].remaining >= demand) {
@@ -172,18 +232,16 @@ int main() {
         }
     }
 
-    // --- Route construction: For each vehicle, order assigned nodes using nearest-next by shortest-path distance,
-    // chaining shortest paths between points to build the full visited-node sequence (including intermediate nodes).
+    // --- Route construction and evaluation (unchanged) ---
     vector<vector<int>> full_routes(vehicles.size());
     vector<double> route_timeCosts(vehicles.size(), 0.0);
     vector<double> route_reliability(vehicles.size(), 1.0);
     vector<int> delivered_demand(vehicles.size(), 0);
 
     for (int vi = 0; vi < vehicles.size(); ++vi) {
-        vector<int> waypoints = assigned[vi]; // nodes to serve (by id)
+        vector<int> waypoints = assigned[vi];
         vector<int> visit_order;
         int current = depot;
-        // select next as the waypoint with minimum shortest-path distance from current
         vector<bool> used_waypoint(waypoints.size(), false);
         while (true) {
             int chosen_idx = -1;
@@ -196,90 +254,64 @@ int main() {
                 double d = res.first;
                 if (d < best_dist) {
                     best_dist = d;
-                    chosen_idx = (int)k;
+                    chosen_idx = k;
                     best_path = res;
                 }
             }
             if (chosen_idx == -1) break;
-            // append path from current -> chosen (but avoid duplicating current)
             vector<int> path = best_path.second;
             if (full_routes[vi].empty()) {
-                // start from depot
                 for (int node : path) full_routes[vi].push_back(node);
             }
             else {
-                // avoid duplicating the joining node
                 for (int p = 1; p < path.size(); ++p) full_routes[vi].push_back(path[p]);
             }
-            // mark waypoint used
             used_waypoint[chosen_idx] = true;
-            // update current
             current = waypoints[chosen_idx];
-            // accumulate delivered demand
             delivered_demand[vi] += nodes[current].demand;
         }
-        // return to depot: shortest path from current to depot
-        if (full_routes[vi].empty()) {
-            // vehicle didn't have any assigned nodes; route is depot->depot
-            full_routes[vi].push_back(depot);
-            full_routes[vi].push_back(depot);
-        }
-        else {
-            auto resret = dijkstra_path(current, depot);
-            vector<int> pathret = resret.second;
-            // avoid duplicating the connecting node
-            for (int p = 1; p < pathret.size(); ++p) full_routes[vi].push_back(pathret[p]);
-        }
-        // Ensure route starts at depot; if not, prepend depot
+        auto resret = dijkstra_path(current, depot);
+        vector<int> pathret = resret.second;
+        for (int p = 1; p < pathret.size(); ++p) full_routes[vi].push_back(pathret[p]);
         if (full_routes[vi].empty() || full_routes[vi].front() != depot) {
             full_routes[vi].insert(full_routes[vi].begin(), depot);
         }
-
-        // Evaluate route timeCost & reliability
-		pair<double, double> res = calculateRouteTimetimeCostReliability(full_routes[vi]);
-        double timeCost = res.first;
-        double relprod = res.second;
-        route_timeCosts[vi] = timeCost;
-        route_reliability[vi] = relprod;
+        pair<double, double> res = calculateRouteTimetimeCostReliability(full_routes[vi]);
+        route_timeCosts[vi] = res.first;
+        route_reliability[vi] = res.second;
     }
 
-    // --- Output formatting ---
+    // --- Output formatting (unchanged) ---
     double total_combined_timeCost = 0.0;
     double sum_route_reliability = 0.0;
     int total_delivered_demand = 0;
     int total_possible_priority = 0;
     int total_delivered_priority = 0;
-    for (int i = 1; i < N; ++i) total_possible_priority += nodes[i].priority;
-
+    for (auto& node : nodes) {
+        if (node.id != depot) total_possible_priority += node.priority;
+    }
 
     for (int vi = 0; vi < vehicles.size(); ++vi) {
         cout << "Vehicle " << vehicles[vi].id << " Route : ";
-        // print route as "0 -> 1 -> 2 -> 0"
         for (int i = 0; i < full_routes[vi].size(); ++i) {
             cout << full_routes[vi][i];
             if (i + 1 < full_routes[vi].size()) cout << " -> ";
         }
-        cout << "\n";
-        cout << "Delivered Demand : " << delivered_demand[vi] << " \n";
-        cout << "Total timeCost : " << (long long)llround(route_timeCosts[vi]) << "  \n";
-        cout << "\n";
+        cout << "\nDelivered Demand : " << delivered_demand[vi] << " \n";
+        cout << "Total timeCost : " << (long long)llround(route_timeCosts[vi]) << "  \n\n";
         total_combined_timeCost += route_timeCosts[vi];
         sum_route_reliability += route_reliability[vi];
         total_delivered_demand += delivered_demand[vi];
-        // delivered priorities: sum priorities of nodes actually assigned to this vehicle
         int sumpri = 0;
         for (int nid : assigned[vi]) sumpri += nodes[nid].priority;
         total_delivered_priority += sumpri;
     }
 
     double avg_reliability = sum_route_reliability / vehicles.size();
-
     cout << "Total Combined timeCost : " << (long long)llround(total_combined_timeCost) << "\n";
-    cout << "Average Reliability (route product average) : " << avg_reliability << "\n";
-
-    cout << "Priority Satisfaction Score (sum of delivered priorities): " << total_delivered_priority << "\n";
-    double pri_percent = 0.0;
-    if (total_possible_priority > 0) pri_percent = 100.0 * (double)total_delivered_priority / (double)total_possible_priority;
+    cout << "Average Reliability : " << avg_reliability << "\n";
+    cout << "Priority Satisfaction Score : " << total_delivered_priority << "\n";
+    double pri_percent = (total_possible_priority > 0) ? 100.0 * total_delivered_priority / total_possible_priority : 0.0;
     cout << "Priority Satisfaction (%) : " << pri_percent << "%\n";
 
     return 0;
