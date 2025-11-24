@@ -178,6 +178,42 @@ int getNumberOfNodesFromJSON(const std::string& filename) {
     return j["nodes"].size();
 }
 
+// Assign nodes to vehicles using a greedy knapsack heuristic
+vector<vector<int>> assign_nodes_knapsack(vector<Nodeinfo>& nodes, vector<Vehicle>& vehicles,int depot) {
+    int n = nodes.size();
+    vector<bool> assigned(n, false);          // track assigned nodes
+    vector<vector<int>> vehicle_nodes(vehicles.size());
+
+    for (int vi = 0; vi < vehicles.size(); vi++) {
+        int capacity_left = vehicles[vi].capacity;
+
+        // Compute value/weight ratio for unassigned nodes
+        vector<pair<double, int>> ratios; // {priority/demand, node_id}
+        for (int i = 0; i < n; ++i) {
+            if (i == depot || assigned[i]) continue;
+            double ratio = double(nodes[i].priority) / nodes[i].demand;
+            ratios.push_back({ ratio, i });
+        }
+
+        // Sort descending by ratio
+        sort(ratios.rbegin(), ratios.rend());
+
+        // Assign nodes to this vehicle while respecting capacity
+        for (auto& thisRatio : ratios) {
+            double ratio = thisRatio.first;
+            int idx = thisRatio.second;
+            if (nodes[idx].demand <= capacity_left) {
+                vehicle_nodes[vi].push_back(idx);
+                capacity_left -= nodes[idx].demand;
+                assigned[idx] = true;
+            }
+        }
+    }
+
+    return vehicle_nodes;
+}
+
+
 int main() {
     string filename = "input.json";
 
@@ -316,3 +352,120 @@ int main() {
 
     return 0;
 }
+
+//int main() {
+//    string filename = "input.json";
+//
+//    // Get number of nodes from JSON
+//    int num_nodes = getNumberOfNodesFromJSON(filename);
+//    if (num_nodes == -1) return 1; // fail if JSON cannot be read
+//
+//    // Resize graph adjacency list
+//    graph_adj.resize(num_nodes);
+//
+//    // Now call the existing function to populate nodes, edges, and vehicles
+//    vector<Nodeinfo> nodes;
+//    vector<Vehicle> vehicles;
+//    if (!loadFromJSON(filename, nodes, graph_adj, vehicles)) {
+//        cerr << "Failed to load graph data from JSON.\n";
+//        return 1;
+//    }
+//
+//    int depot = 0; // assuming depot has id = 0
+//
+//    // --- Vehicle assignment using knapsack-style heuristic ---
+//    vector<vector<int>> assigned = assign_nodes_knapsack(nodes, vehicles, depot);
+//
+//    // --- Route construction using existing nearest-next Dijkstra logic ---
+//    vector<vector<int>> full_routes(vehicles.size());
+//    vector<double> route_timeCosts(vehicles.size(), 0.0);
+//    vector<double> route_reliability(vehicles.size(), 1.0);
+//    vector<int> delivered_demand(vehicles.size(), 0);
+//
+//    for (int vi = 0; vi < vehicles.size(); ++vi) {
+//        vector<int> waypoints = assigned[vi]; // nodes to serve
+//        vector<int> visit_order;
+//        int current = depot;
+//        vector<bool> used_waypoint(waypoints.size(), false);
+//
+//        while (true) {
+//            int chosen_idx = -1;
+//            double best_dist = 1e18;
+//            pair<double, vector<int>> best_path;
+//            for (int k = 0; k < waypoints.size(); ++k) {
+//                if (used_waypoint[k]) continue;
+//                int candidate = waypoints[k];
+//                auto res = dijkstra_path(current, candidate); // use your fixed Dijkstra
+//                double d = res.first;
+//                if (d < best_dist) {
+//                    best_dist = d;
+//                    chosen_idx = k;
+//                    best_path = res;
+//                }
+//            }
+//            if (chosen_idx == -1) break;
+//
+//            vector<int> path = best_path.second;
+//            if (full_routes[vi].empty()) {
+//                for (int node : path) full_routes[vi].push_back(node);
+//            }
+//            else {
+//                for (int p = 1; p < path.size(); ++p) full_routes[vi].push_back(path[p]);
+//            }
+//
+//            used_waypoint[chosen_idx] = true;
+//            current = waypoints[chosen_idx];
+//            delivered_demand[vi] += nodes[current].demand;
+//        }
+//
+//        // Return to depot
+//        if (!full_routes[vi].empty()) {
+//            auto resret = dijkstra_path(current, depot);
+//            vector<int> pathret = resret.second;
+//            for (int p = 1; p < pathret.size(); ++p) full_routes[vi].push_back(pathret[p]);
+//        }
+//        else {
+//            full_routes[vi].push_back(depot);
+//            full_routes[vi].push_back(depot);
+//        }
+//
+//        // Ensure route starts at depot
+//        if (full_routes[vi].front() != depot)
+//            full_routes[vi].insert(full_routes[vi].begin(), depot);
+//
+//        // Evaluate route
+//        auto res = calculateRouteTimetimeCostReliability(full_routes[vi]);
+//        route_timeCosts[vi] = res.first;
+//        route_reliability[vi] = res.second;
+//    }
+//
+//    // --- Output (same as your current version) ---
+//    double total_time = 0.0, total_reliability = 0.0;
+//    int total_delivered_priority = 0, total_possible_priority = 0;
+//    for (int i = 1; i < nodes.size(); ++i) total_possible_priority += nodes[i].priority;
+//
+//    for (int vi = 0; vi < vehicles.size(); ++vi) {
+//        cout << "Vehicle " << vehicles[vi].id << " Route: ";
+//        for (int i = 0; i < full_routes[vi].size(); ++i) {
+//            cout << full_routes[vi][i];
+//            if (i + 1 < full_routes[vi].size()) cout << " -> ";
+//        }
+//        cout << "\nDelivered Demand: " << delivered_demand[vi]
+//            << " | Total TimeCost: " << llround(route_timeCosts[vi]) << "\n\n";
+//
+//            total_time += route_timeCosts[vi];
+//            total_reliability += route_reliability[vi];
+//
+//            int sumpri = 0;
+//            for (int nid : assigned[vi]) sumpri += nodes[nid].priority;
+//            total_delivered_priority += sumpri;
+//    }
+//
+//    cout << "Total Combined timeCost: " << llround(total_time) << "\n";
+//    cout << "Average Reliability: " << total_reliability / vehicles.size() << "\n";
+//    cout << "Priority Satisfaction Score: " << total_delivered_priority << "\n";
+//    cout << "Priority Satisfaction (%): "
+//        << (100.0 * total_delivered_priority / total_possible_priority) << "%\n";
+//
+//    return 0;
+//}
