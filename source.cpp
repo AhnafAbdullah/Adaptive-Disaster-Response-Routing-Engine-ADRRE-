@@ -535,5 +535,43 @@ int main() {
     double objScore = computeObjective(full_routes, route_timeCosts, route_reliability, delivered_demand, nodes, vehicles, 1.0, 1.0, 1.0);
     cout << "Objective Function Score: " << objScore << "\n";
 
+    json viz_json;
+
+    // Nodes: add coordinates (dummy if not present)
+    viz_json["nodes"] = json::array();
+    for (auto& n : nodes) {
+        viz_json["nodes"].push_back({
+            {"id", n.id},
+            {"x", n.id * 10},  // dummy x
+            {"y", n.id * 10}   // dummy y
+            });
+    }
+
+    // Edges
+    viz_json["edges"] = json::array();
+    for (int u = 0; u < graph_adj.size(); ++u) {
+        for (auto& e : graph_adj[u]) {
+            if (u < e.to) { // avoid duplicate edges in undirected graph
+                viz_json["edges"].push_back({
+                    {"u", u}, {"v", e.to}, {"time", e.timeCost}, {"rel", e.rel}
+                    });
+            }
+        }
+    }
+
+    // Routes
+    viz_json["routes"] = json::array();
+    for (int vi = 0; vi < full_routes.size(); ++vi) {
+        viz_json["routes"].push_back({
+            {"vehicle_id", vehicles[vi].id},
+            {"path", full_routes[vi]}
+            });
+    }
+
+    // Write JSON
+    std::ofstream file("viz_data.json");
+    file << viz_json.dump(4);
+    file.close();
+
     return 0;
 }
